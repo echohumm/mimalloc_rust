@@ -1,5 +1,7 @@
 #![no_std]
 
+// TODO: make sure this is up to date with the latest mimalloc, not the rather old fork from normal mimalloc_rust
+
 use core::ffi::c_void;
 
 extern crate libc;
