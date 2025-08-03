@@ -1,12 +1,12 @@
 [package]
-name = "mimalloc-ffi"
+name = "memapi-mimalloc-sys"
 # match mimalloc version
 version = "3.1.5"
 edition = "2018"
 rust-version = "1.56"
-repository = "https://github.com/echohumm/memapi/tree/master/mimalloc"
+repository = "https://github.com/echohumm/mimalloc_rust"
 license = "MIT OR Apache-2.0"
-description = "FFI bindings for mimalloc"
+description = "FFI bindings to MiMalloc made for memapi."
 build = "build.rs"
 links = "mimalloc"
 exclude = [
