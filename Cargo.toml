@@ -1,7 +1,7 @@
 [package]
 name = "memapi-mimalloc-sys"
 #         own ver+mimalloc ver-commit hash
-version = "0.1.0+3.1.5-g09a27098aa6e9286518bd9c74e6ffa7199c3f04e"
+version = "0.1.1+3.1.5-g09a27098aa6e9286518bd9c74e6ffa7199c3f04e"
 edition = "2018"
 rust-version = "1.56"
 repository = "https://github.com/echohumm/mimalloc_rust"
