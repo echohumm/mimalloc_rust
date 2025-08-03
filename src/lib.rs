@@ -1,141 +1,62 @@
-// Copyright 2019 Octavian Oncescu
-
 #![no_std]
 
-//! A drop-in global allocator wrapper around the [mimalloc](https://github.com/microsoft/mimalloc) allocator.
-//! Mimalloc is a general purpose, performance oriented allocator built by Microsoft.
-//!
-//! ## Usage
-//! ```rust,ignore
-//! use mimalloc::MiMalloc;
-//!
-//! #[global_allocator]
-//! static GLOBAL: MiMalloc = MiMalloc;
-//! ```
-//!
-//! ## Usage with secure mode
-//! Using secure mode adds guard pages,
-//! randomized allocation, encrypted free lists, etc. The performance penalty is usually
-//! around 10% according to [mimalloc's](https://github.com/microsoft/mimalloc)
-//! own benchmarks.
-//!
-//! To enable secure mode, put in `Cargo.toml`:
-//! ```rust,ignore
-//! [dependencies]
-//! mimalloc = { version = "*", features = ["secure"] }
-//! ```
+use core::ffi::c_void;
 
-extern crate libmimalloc_sys as ffi;
+extern crate libc;
 
 #[cfg(feature = "extended")]
 mod extended;
+#[cfg(feature = "extended")]
+pub use extended::*;
 
-use core::alloc::{GlobalAlloc, Layout};
-use core::ffi::c_void;
-use ffi::*;
+extern "C" {
+    /// Allocate zero-initialized `size` bytes.
+    ///
+    /// Returns a pointer to newly allocated zero-initialized memory, or null if out of memory.
+    pub fn mi_zalloc(size: usize) -> *mut c_void;
 
-/// Drop-in mimalloc global allocator.
-///
-/// ## Usage
-/// ```rust,ignore
-/// use mimalloc::MiMalloc;
-///
-/// #[global_allocator]
-/// static GLOBAL: MiMalloc = MiMalloc;
-/// ```
-pub struct MiMalloc;
+    /// Allocate `size` uninitialized bytes.
+    ///
+    /// Returns a pointer to the allocated memory or null if out of memory. The pointer will still
+    /// be unique if `size` is 0.
+    pub fn mi_malloc(size: usize) -> *mut c_void;
 
-unsafe impl GlobalAlloc for MiMalloc {
-    #[inline]
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        mi_malloc_aligned(layout.size(), layout.align()) as *mut u8
-    }
+    /// Reallocates memory to `new_size` bytes.
+    ///
+    /// Returns a pointer to the allocated memory or null if out of memory.
+    ///
+    /// If null is returned, the pointer `p` is not freed. Otherwise, the original pointer is either
+    /// freed or returned as the result if the reallocation fits in-place with the new size.
+    ///
+    /// If `p` is null, this is equivalent to [`mi_malloc`]. If `new_size` is larger than the
+    /// original `size` allocated for `p`, the bytes after `size` are uninitialized.
+    pub fn mi_realloc(p: *mut c_void, new_size: usize) -> *mut c_void;
 
-    #[inline]
-    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-        mi_zalloc_aligned(layout.size(), layout.align()) as *mut u8
-    }
+    /// Allocate `size` zeroed bytes with an alignment of `align`, initialized to zero.
+    ///
+    /// Returns a pointer to the allocated memory or null if out of memory. The pointer will still
+    /// be unique if `size` is 0.`
+    pub fn mi_zalloc_aligned(size: usize, align: usize) -> *mut c_void;
 
-    #[inline]
-    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-        mi_free(ptr as *mut c_void);
-    }
+    /// Allocate `size` uninitialized bytes with an alignment of `align`.
+    ///
+    /// Returns a pointer to the allocated memory or null if out of memory. The pointer will still
+    /// be unique if `size` is 0.`
+    pub fn mi_malloc_aligned(size: usize, align: usize) -> *mut c_void;
 
-    #[inline]
-    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        mi_realloc_aligned(ptr as *mut c_void, new_size, layout.align()) as *mut u8
-    }
-}
+    /// Re-allocate memory to a size of `new_size` bytes, with an alignment of `align`.
+    ///
+    /// Returns a pointer to the allocated memory or null if out of memory.
+    ///
+    /// If null is returned, the pointer `p` is not freed. Otherwise, the original pointer is either
+    /// freed or returned as the result if the reallocation fits in-place with the new size.
+    ///
+    /// If `p` is null, this is equivalent to [`mi_malloc_aligned`]. If `new_size` is
+    /// larger than the original `size` allocated for `p`, the bytes after `size` are uninitialized.
+    pub fn mi_realloc_aligned(p: *mut c_void, new_size: usize, align: usize) -> *mut c_void;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_frees_allocated_memory() {
-        unsafe {
-            let layout = Layout::from_size_align(8, 8).unwrap();
-            let alloc = MiMalloc;
-
-            let ptr = alloc.alloc(layout);
-            alloc.dealloc(ptr, layout);
-        }
-    }
-
-    #[test]
-    fn it_frees_allocated_big_memory() {
-        unsafe {
-            let layout = Layout::from_size_align(1 << 20, 32).unwrap();
-            let alloc = MiMalloc;
-
-            let ptr = alloc.alloc(layout);
-            alloc.dealloc(ptr, layout);
-        }
-    }
-
-    #[test]
-    fn it_frees_zero_allocated_memory() {
-        unsafe {
-            let layout = Layout::from_size_align(8, 8).unwrap();
-            let alloc = MiMalloc;
-
-            let ptr = alloc.alloc_zeroed(layout);
-            alloc.dealloc(ptr, layout);
-        }
-    }
-
-    #[test]
-    fn it_frees_zero_allocated_big_memory() {
-        unsafe {
-            let layout = Layout::from_size_align(1 << 20, 32).unwrap();
-            let alloc = MiMalloc;
-
-            let ptr = alloc.alloc_zeroed(layout);
-            alloc.dealloc(ptr, layout);
-        }
-    }
-
-    #[test]
-    fn it_frees_reallocated_memory() {
-        unsafe {
-            let layout = Layout::from_size_align(8, 8).unwrap();
-            let alloc = MiMalloc;
-
-            let ptr = alloc.alloc(layout);
-            let ptr = alloc.realloc(ptr, layout, 16);
-            alloc.dealloc(ptr, layout);
-        }
-    }
-
-    #[test]
-    fn it_frees_reallocated_big_memory() {
-        unsafe {
-            let layout = Layout::from_size_align(1 << 20, 32).unwrap();
-            let alloc = MiMalloc;
-
-            let ptr = alloc.alloc(layout);
-            let ptr = alloc.realloc(ptr, layout, 2 << 20);
-            alloc.dealloc(ptr, layout);
-        }
-    }
+    /// Deallocates previously allocated memory.
+    ///
+    /// The pointer `p` must have been allocated before or be null.
+    pub fn mi_free(p: *mut c_void);
 }
