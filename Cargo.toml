@@ -1,7 +1,9 @@
+# This repo is a slighly modified version of purpleprotocol/mimalloc-rust
+
 [package]
 name = "memapi-mimalloc-sys"
-#         own ver+mimalloc ver-commit hash
-version = "0.1.2+3.1.5-g09a27098aa6e9286518bd9c74e6ffa7199c3f04e"
+#         own ver+mimalloc ver-commits past ver-commit hash
+version = "0.1.2+3.1.5-1-g09a27098aa6e9286518bd9c74e6ffa7199c3f04e"
 edition = "2018"
 rust-version = "1.56"
 repository = "https://github.com/echohumm/mimalloc_rust"
@@ -19,10 +21,10 @@ exclude = [
 ]
 
 [dependencies]
-libc = { version = "^0.2", default-features = false }
+libc = { version = "^0.2.106", default-features = false }
 
 [build-dependencies]
-cc = "^1.0.94"
+cc = "^1.0.92"
 
 [features]
 secure = []
